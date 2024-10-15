@@ -12,9 +12,9 @@ humidity_levels = ['Low', 'High']  # Humidity levels
 # Initialize grid (0 = Sunny, 1 = Stormy)
 weather_grid = np.zeros((grid_size, grid_size))
 
-# Introduce storm starting as a single point on the right side
+# Introduce storm starting as a single point, slightly to the left on the right side
 storm_x = grid_size // 2  # Vertical position of the storm (middle row)
-storm_y = grid_size - 1   # Horizontal position (starts on the far right)
+storm_y = int(grid_size * 0.75)  # Horizontal position (75% of the grid width, slightly left from the far right)
 weather_grid[storm_x, storm_y] = 1  # Initial storm point
 
 # Wind, Temperature, and Humidity grids
