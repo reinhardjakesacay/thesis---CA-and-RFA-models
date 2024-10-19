@@ -58,7 +58,7 @@ def update_weather(grid, wind_grid, temp_grid, humidity_grid, storm_x, storm_y, 
 
     # Move the storm leftward and unpredictably up/down
     storm_y = (storm_y - 1) % grid_size  # Move left
-    storm_x = (storm_x + np.random.randint(-1, 2)) % grid_size  # Random vertical movement
+    storm_x = (storm_x + np.random.randint(-3, 4)) % grid_size  # Random vertical movement
     
     new_grid[storm_x, storm_y] = 1  # Ensure storm keeps moving unpredictably
     
