@@ -1,6 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import colors
+import pandas as pd
+
+# Read the CSV file
+df = pd.read_csv('weatherHistory.csv', encoding='cp1252')
+
+# Print the first 5 rows of 'Column1' and 'Column2'
+print(df[['Temperature', 'Humidity', 'Wind Speed (km/h)']].head(5))
+
 
 # Parameters
 grid_size = 200
