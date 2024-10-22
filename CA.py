@@ -1,142 +1,97 @@
 import numpy as np
-import pandas as pd
-import random
 import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
-import math
+from matplotlib import colors
+import pandas as pd
 
-# Load Weather Data from CSV
-def load_weather_data(csv_file):
-    # Assuming the CSV file contains columns: 'wind_speed', 'temperature', 'humidity'
-    df = pd.read_csv(csv_file)
-    
-    # Automatically calculate the grid shape based on the number of rows in the dataset
-    num_data_points = df.shape[0]
-    grid_size = int(math.sqrt(num_data_points))  # Get the closest square root
-    num_cells = grid_size * grid_size  # Total number of cells in the square grid
-    
-    # Truncate or reshape the data to fit the grid
-    truncated_df = df.head(num_cells)
-    
-    wind_speed = truncated_df['Wind Speed (km/h)'].values.reshape(grid_size, grid_size)
-    temperature = truncated_df['Temperature (C)'].values.reshape(grid_size, grid_size)
-    humidity = truncated_df['Humidity'].values.reshape(grid_size, grid_size)
-    
-    weather_data = {
-        "wind_speed": wind_speed,
-        "temperature": temperature,
-        "humidity": humidity,
-        "grid_size": grid_size
-    }
-    
-    return weather_data
+# Read the CSV file
+df = pd.read_csv('weatherHistory.csv', encoding='cp1252')
 
-# Define grid structure and neighborhood (Moore Neighborhood)
-def get_neighbors(i, j, grid, grid_size):
-    neighbors = []
-    for x in range(-1, 2):
-        for y in range(-1, 2):
-            if x == 0 and y == 0:
-                continue  # Skip the center cell itself
-            ni, nj = i + x, j + y
-            if 0 <= ni < grid_size and 0 <= nj < grid_size:
-                neighbors.append(grid[ni, nj])
-    return neighbors
+# Print the first 5 rows of 'Column1' and 'Column2'
+print(df[['Temperature', 'Humidity', 'Wind Speed (km/h)']].head(5))
 
-# Stochastic Initial State Distribution (0: Sunny, 1: Stormy)
-def initialize_grid(grid_size, p_stormy=0.2):
-    grid = np.zeros((grid_size, grid_size), dtype=int)
+
+# Parameters
+grid_size = 200
+steps = 100
+wind_speeds = ['Low', 'Medium', 'High']  # Wind speeds
+temperatures = ['Low', 'High']  # Temperature categories
+humidity_levels = ['Low', 'High']  # Humidity levels
+
+# Initialize grid (0 = Sunny, 1 = Stormy)
+weather_grid = np.zeros((grid_size, grid_size))
+
+# Introduce storm starting as a single point, slightly to the left on the right side
+storm_x = grid_size // 2  # Vertical position of the storm (middle row)
+storm_y = int(grid_size * 0.75)  # Horizontal position (75% of the grid width, slightly left from the far right)
+weather_grid[storm_x, storm_y] = 1  # Initial storm point
+
+# Wind, Temperature, and Humidity grids
+wind_grid = np.random.choice(wind_speeds, size=(grid_size, grid_size), p=[0.4, 0.4, 0.2])
+temp_grid = np.random.choice(temperatures, size=(grid_size, grid_size), p=[0.5, 0.5])
+humidity_grid = np.random.choice(humidity_levels, size=(grid_size, grid_size), p=[0.5, 0.5])
+
+# Function to count stormy neighbors and check distance from storm center for circular spread
+def is_within_circular_spread(x, y, storm_x, storm_y, radius):
+    return (x - storm_x)**2 + (y - storm_y)**2 <= radius**2
+
+# Define the update rules based on storm conditions
+def update_weather(grid, wind_grid, temp_grid, humidity_grid, storm_x, storm_y, radius):
+    new_grid = grid.copy()
+
     for i in range(grid_size):
         for j in range(grid_size):
-            grid[i, j] = 1 if random.random() < p_stormy else 0  # Stormy with probability p_stormy
-    return grid
+            state = grid[i, j]
+            wind = wind_grid[i, j]
+            temp = temp_grid[i, j]
+            humidity = humidity_grid[i, j]
+            random_chance = np.random.uniform(0, 1)
+            
+            # Rules for Stormy (ST) to Stormy (ST)
+            if state == 1:  # Currently stormy
+                if wind == 'High' and temp == 'Low' and humidity == 'High' and random_chance < 0.7:
+                    new_grid[i, j] = 1  # Stay stormy
+                # Stormy (ST) to Sunny (SU)
+                elif wind == 'Medium' and random_chance < 0.5:
+                    new_grid[i, j] = 0  # Change to Sunny
+                elif wind == 'Low' and random_chance < 0.4:
+                    new_grid[i, j] = 0  # Change to Sunny
 
-# Transition Rules
-def transition(cell_state, neighbors, wind_speed, temperature, humidity):
-    stormy_neighbors = sum(neighbors)
-    random_chance = random.random()
+            # Rules for Sunny (SU) to Stormy (ST)
+            elif state == 0:  # Currently sunny
+                if is_within_circular_spread(i, j, storm_x, storm_y, radius):
+                    if wind == 'High' and random_chance < 0.5:
+                        new_grid[i, j] = 1  # Change to Stormy
+                    elif wind == 'Medium' and random_chance < 0.4:
+                        new_grid[i, j] = 1  # Change to Stormy
 
-    if cell_state == 1:  # Stormy
-        if wind_speed > 50 and temperature < 10 and humidity > 70 and random_chance < 0.7:
-            return 1  # Stay Stormy
-        elif wind_speed > 30 and stormy_neighbors >= 2 and random_chance < 0.5:
-            return 0  # Transition to Sunny
-        elif wind_speed < 30 and sum(neighbors) < len(neighbors) / 2 and random_chance < 0.4:
-            return 0  # Transition to Sunny
-    elif cell_state == 0:  # Sunny
-        if wind_speed < 30 and temperature > 20 and humidity < 50 and random_chance < 0.8:
-            return 0  # Stay Sunny
-        elif wind_speed > 50 and stormy_neighbors >= 2 and random_chance < 0.5:
-            return 1  # Transition to Stormy
-
-    return cell_state  # No change
-
-# Simulation Execution
-def run_simulation(grid, weather_data, iterations=10):
-    grids = [grid.copy()]  # Store grids for visualization
-    grid_size = weather_data['grid_size']
+    # Move the storm leftward and unpredictably up/down
+    storm_y = (storm_y - 1) % grid_size  # Move left
+    storm_x = (storm_x + np.random.randint(-3, 4)) % grid_size  # Random vertical movement
     
-    for _ in range(iterations):
-        new_grid = grid.copy()
-        for i in range(grid_size):
-            for j in range(grid_size):
-                neighbors = get_neighbors(i, j, grid, grid_size)
-                wind_speed = weather_data['wind_speed'][i, j]
-                temperature = weather_data['temperature'][i, j]
-                humidity = weather_data['humidity'][i, j]
+    new_grid[storm_x, storm_y] = 1  # Ensure storm keeps moving unpredictably
+    
+    return new_grid, storm_x, storm_y
 
-                # Apply transition rules
-                new_grid[i, j] = transition(grid[i, j], neighbors, wind_speed, temperature, humidity)
+# Create color map for visualization (Blue for sunny, Gray for stormy)
+cmap = colors.ListedColormap(['blue', 'gray'])
+norm = colors.BoundaryNorm([0, 0.5, 1], cmap.N)
 
-        grid = new_grid.copy()  # Update grid for next iteration
-        grids.append(grid.copy())  # Save grid state for each iteration
-    return grids
+# Simulation
+fig, ax = plt.subplots(figsize=(6, 6))
 
-# Validation and Analysis
-def analyze_grid(grid):
-    unique, counts = np.unique(grid, return_counts=True)
-    distribution = dict(zip(unique, counts))
-    print(f"Final State Distribution: {distribution}")
-    return distribution
+# Initial radius of the storm
+storm_radius = 1
 
-# Visualize the grid using matplotlib
-def visualize_actual_vs_prediction(actual_grid, predicted_grids):
-    cmap = mcolors.ListedColormap (['yellow', 'blue'])  # Yellow for Sunny, Blue for Stormy
-    bounds = [-0.5, 0.5, 1.5]
-    norm = mcolors.BoundaryNorm(bounds, cmap.N)
+for step in range(steps):
+    weather_grid, storm_x, storm_y = update_weather(weather_grid, wind_grid, temp_grid, humidity_grid, storm_x, storm_y, storm_radius)
+    
+    # Increase storm radius as it moves to simulate spread
+    storm_radius += 0.2
+    
+    # Plot weather states
+    ax.clear()
+    ax.imshow(weather_grid, cmap=cmap, norm=norm)
+    ax.set_title(f"Storm Prediction (Step {step + 1})")
+    plt.pause(0.1)
 
-    fig, axes = plt.subplots(1, len(predicted_grids) + 1, figsize=(15, 3))
-
-    # First visual: actual weather data
-    axes[0].imshow(actual_grid, cmap=cmap, norm=norm)
-    axes[0].set_title("Actual Weather")
-    axes[0].axis('off')
-
-    # Next visual: predictions
-    for i in range(len(predicted_grids)):
-        axes[i + 1].imshow(predicted_grids[i], cmap=cmap, norm=norm)
-        axes[i + 1].set_title("Prediction")
-        axes[i + 1].axis('off')
-
-    plt.tight_layout()
-    plt.show()
-
-
-# Main Program
-if __name__ == "__main__":
-    # Load weather data from CSV file
-    csv_file = 'weatherHistory.csv'  # Replace with your CSV file path
-    weather_data = load_weather_data(csv_file)
-
-    # Initialize the grid with stochastic distribution
-    grid_size = weather_data['grid_size']
-    grid = initialize_grid(grid_size)
-
-    # Run the simulation for 1 iteration
-    grids = run_simulation(grid, weather_data, iterations=1)
-
-    # Analyze the final grid
-    analyze_grid(grids[-1])
-
-    # Visualize the grid states over iteration
-    visualize_actual_vs_prediction(grid, grids[1:])
+plt.show()
