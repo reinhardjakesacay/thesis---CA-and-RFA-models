@@ -2,13 +2,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import colors
 import pandas as pd
+import os
 
-# Read the CSV file
+# Read the CSV file for historical weather data (optional, adjust as necessary)
 df = pd.read_csv('weatherHistory.csv', encoding='cp1252')
-
-# Print the first 5 rows of 'Column1' and 'Column2'
-print(df[['Temperature', 'Humidity', 'Wind Speed (km/h)']].head(5))
-
+print(df[['Temperature (C)', 'Humidity', 'Wind Speed (km/h)']].head(5))
 
 # Parameters
 grid_size = 200
@@ -20,15 +18,18 @@ humidity_levels = ['Low', 'High']  # Humidity levels
 # Initialize grid (0 = Sunny, 1 = Stormy)
 weather_grid = np.zeros((grid_size, grid_size))
 
-# Introduce storm starting as a single point, slightly to the left on the right side
+# Introduce storm starting as a single point
 storm_x = grid_size // 2  # Vertical position of the storm (middle row)
-storm_y = int(grid_size * 0.75)  # Horizontal position (75% of the grid width, slightly left from the far right)
+storm_y = int(grid_size * 0.75)  # Horizontal position (75% of the grid width)
 weather_grid[storm_x, storm_y] = 1  # Initial storm point
 
 # Wind, Temperature, and Humidity grids
 wind_grid = np.random.choice(wind_speeds, size=(grid_size, grid_size), p=[0.4, 0.4, 0.2])
 temp_grid = np.random.choice(temperatures, size=(grid_size, grid_size), p=[0.5, 0.5])
 humidity_grid = np.random.choice(humidity_levels, size=(grid_size, grid_size), p=[0.5, 0.5])
+
+# List to collect data for each step
+collected_data = []
 
 # Function to count stormy neighbors and check distance from storm center for circular spread
 def is_within_circular_spread(x, y, storm_x, storm_y, radius):
@@ -45,6 +46,7 @@ def update_weather(grid, wind_grid, temp_grid, humidity_grid, storm_x, storm_y, 
             temp = temp_grid[i, j]
             humidity = humidity_grid[i, j]
             random_chance = np.random.uniform(0, 1)
+            storm_chance = np.random.uniform(0, 1)  # Stochasticity for storm spread
             
             # Rules for Stormy (ST) to Stormy (ST)
             if state == 1:  # Currently stormy
@@ -59,9 +61,9 @@ def update_weather(grid, wind_grid, temp_grid, humidity_grid, storm_x, storm_y, 
             # Rules for Sunny (SU) to Stormy (ST)
             elif state == 0:  # Currently sunny
                 if is_within_circular_spread(i, j, storm_x, storm_y, radius):
-                    if wind == 'High' and random_chance < 0.5:
+                    if wind == 'High' and storm_chance < 0.5 + np.random.uniform(-0.1, 0.1):
                         new_grid[i, j] = 1  # Change to Stormy
-                    elif wind == 'Medium' and random_chance < 0.4:
+                    elif wind == 'Medium' and storm_chance < 0.4 + np.random.uniform(-0.1, 0.1):
                         new_grid[i, j] = 1  # Change to Stormy
 
     # Move the storm leftward and unpredictably up/down
@@ -83,15 +85,35 @@ fig, ax = plt.subplots(figsize=(6, 6))
 storm_radius = 1
 
 for step in range(steps):
+    # Update weather and collect current grid state
     weather_grid, storm_x, storm_y = update_weather(weather_grid, wind_grid, temp_grid, humidity_grid, storm_x, storm_y, storm_radius)
     
     # Increase storm radius as it moves to simulate spread
     storm_radius += 0.2
+
+    # Collect data for this step (mean values of temperature, humidity, and stormy weather)
+    mean_temp = np.mean([1 if temp == 'High' else 0 for temp in temp_grid.flatten()])
+    mean_humidity = np.mean([1 if humidity == 'High' else 0 for humidity in humidity_grid.flatten()])
+    storm_percentage = np.mean(weather_grid)  # Percentage of the grid in stormy state
+    collected_data.append([step, mean_temp, mean_humidity, storm_percentage])
     
     # Plot weather states
     ax.clear()
     ax.imshow(weather_grid, cmap=cmap, norm=norm)
     ax.set_title(f"Storm Prediction (Step {step + 1})")
     plt.pause(0.1)
+
+# Check for existing file and create a new one if necessary
+base_filename = 'CA_output.csv'
+new_filename = base_filename
+counter = 1
+
+while os.path.exists(new_filename):
+    new_filename = f'CA_output_{counter}.csv'
+    counter += 1
+
+# After the simulation, save collected data to CSV
+weather_simulation_data = pd.DataFrame(collected_data, columns=['Step', 'Mean Temperature', 'Mean Humidity', 'Storm Percentage'])
+weather_simulation_data.to_csv(new_filename, index=False)
 
 plt.show()

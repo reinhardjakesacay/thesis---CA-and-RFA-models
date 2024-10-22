@@ -69,12 +69,12 @@ for step in range(steps):
     # Plot temperature
     ax1.clear()
     ax1.imshow(grid, cmap=cmap_temp, norm=norm_temp)
-    ax1.set_title(f"Temperature (Step {step})")
+    ax1.set_title(f"Temperature (Step {step + 1})")
     
     # Plot clouds
     ax2.clear()
     ax2.imshow(clouds, cmap=cmap_cloud, norm=norm_cloud)
-    ax2.set_title(f"Clouds and Typhoon (Step {step})")
+    ax2.set_title(f"Clouds and Typhoon (Step {step + 1})")
     
     # Mark typhoon on cloud map
     ax2.scatter(typhoon_y, typhoon_x, color='red', s=100, label='Typhoon')
