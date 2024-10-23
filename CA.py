@@ -6,9 +6,32 @@ import pandas as pd
 # Read the CSV file
 df = pd.read_csv('weatherHistory.csv', encoding='cp1252')
 
-# Print the first 5 rows of 'Column1' and 'Column2'
-print(df[['Temperature', 'Humidity', 'Wind Speed (km/h)']].head(5))
+# Select a random value from each column
+random_temperature = df['Temperature'].sample().values[0]
+random_wind_speed = df['Wind Speed (km/h)'].sample().values[0]
+random_humidity = df['Humidity'].sample().values[0]
 
+# Display the random values
+print(f"Random Temperature: {random_temperature}")
+print(f"Random Wind Speed: {random_wind_speed}")
+print(f"Random Humidity: {random_humidity}")
+
+max_temperature = df['Temperature'].max()
+min_temperature = df['Temperature'].min()
+
+max_wind_speed = df['Wind Speed (km/h)'].max()
+min_wind_speed = df['Wind Speed (km/h)'].min()
+
+max_humidity = df['Humidity'].max()
+min_humidity = df['Humidity'].min()
+
+# Display the results
+print(f"Max Temperature: {max_temperature}, Min Temperature: {min_temperature}")
+# 61.72777778
+print(f"Max Wind Speed: {max_wind_speed}, Min Wind Speed: {min_wind_speed}")
+# 63.8526
+print(f"Max Humidity: {max_humidity}, Min Humidity: {min_humidity}")
+# 1.0
 
 # Parameters
 grid_size = 200
