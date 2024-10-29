@@ -1,63 +1,46 @@
+import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import colors
-import pandas as pd
 
-# Read the CSV file
+# Read the CSV file and get min, max, and random values
 df = pd.read_csv('weatherHistory.csv', encoding='cp1252')
-
-# Select a random value from each column
 random_temperature = df['Temperature'].sample().values[0]
 random_wind_speed = df['Wind Speed (km/h)'].sample().values[0]
 random_humidity = df['Humidity'].sample().values[0]
 
-# Display the random values
-print(f"Random Temperature: {random_temperature}")
-print(f"Random Wind Speed: {random_wind_speed}")
-print(f"Random Humidity: {random_humidity}")
-
 max_temperature = df['Temperature'].max()
 min_temperature = df['Temperature'].min()
-
 max_wind_speed = df['Wind Speed (km/h)'].max()
 min_wind_speed = df['Wind Speed (km/h)'].min()
-
 max_humidity = df['Humidity'].max()
 min_humidity = df['Humidity'].min()
 
-# Display the results
-print(f"Max Temperature: {max_temperature}, Min Temperature: {min_temperature}")
-# 61.72777778
-print(f"Max Wind Speed: {max_wind_speed}, Min Wind Speed: {min_wind_speed}")
-# 63.8526
-print(f"Max Humidity: {max_humidity}, Min Humidity: {min_humidity}")
-# 1.0
-
-# Parameters
+# CA Simulation Parameters
 grid_size = 200
 steps = 100
-wind_speeds = ['Low', 'Medium', 'High']  # Wind speeds
-temperatures = ['Low', 'High']  # Temperature categories
-humidity_levels = ['Low', 'High']  # Humidity levels
+wind_speeds = ['Low', 'Medium', 'High']  
+temperatures = ['Low', 'High']  
+humidity_levels = ['Low', 'High']  
 
-# Initialize grid (0 = Sunny, 1 = Stormy)
+# Create initial grid and weather conditions
 weather_grid = np.zeros((grid_size, grid_size))
+storm_x = grid_size // 2
+storm_y = int(grid_size * 0.75)
+weather_grid[storm_x, storm_y] = 1  
 
-# Introduce storm starting as a single point, slightly to the left on the right side
-storm_x = grid_size // 2  # Vertical position of the storm (middle row)
-storm_y = int(grid_size * 0.75)  # Horizontal position (75% of the grid width, slightly left from the far right)
-weather_grid[storm_x, storm_y] = 1  # Initial storm point
+# Set up probability based on CSV values
+wind_prob = [0.08, 0.7, 0.22] #if random_wind_speed <= max_wind_speed/2 else [0.2, 0.5, 0.3]
+temp_prob = [0.2, 0.8] #if random_temperature <= max_temperature/2 else [0.3, 0.7]
+humidity_prob = [0.9, 0.1]  #if random_humidity >= min_humidity else [0.3, 0.7]
 
-# Wind, Temperature, and Humidity grids
-wind_grid = np.random.choice(wind_speeds, size=(grid_size, grid_size), p=[0.4, 0.4, 0.2])
-temp_grid = np.random.choice(temperatures, size=(grid_size, grid_size), p=[0.5, 0.5])
-humidity_grid = np.random.choice(humidity_levels, size=(grid_size, grid_size), p=[0.5, 0.5])
+wind_grid = np.random.choice(wind_speeds, size=(grid_size, grid_size), p=wind_prob)
+temp_grid = np.random.choice(temperatures, size=(grid_size, grid_size), p=temp_prob)
+humidity_grid = np.random.choice(humidity_levels, size=(grid_size, grid_size), p=humidity_prob)
 
-# Function to count stormy neighbors and check distance from storm center for circular spread
 def is_within_circular_spread(x, y, storm_x, storm_y, radius):
     return (x - storm_x)**2 + (y - storm_y)**2 <= radius**2
 
-# Define the update rules based on storm conditions
 def update_weather(grid, wind_grid, temp_grid, humidity_grid, storm_x, storm_y, radius):
     new_grid = grid.copy()
 
@@ -69,49 +52,36 @@ def update_weather(grid, wind_grid, temp_grid, humidity_grid, storm_x, storm_y, 
             humidity = humidity_grid[i, j]
             random_chance = np.random.uniform(0, 1)
             
-            # Rules for Stormy (ST) to Stormy (ST)
-            if state == 1:  # Currently stormy
+            if state == 1:
                 if wind == 'High' and temp == 'Low' and humidity == 'High' and random_chance < 0.7:
-                    new_grid[i, j] = 1  # Stay stormy
-                # Stormy (ST) to Sunny (SU)
+                    new_grid[i, j] = 1
                 elif wind == 'Medium' and random_chance < 0.5:
-                    new_grid[i, j] = 0  # Change to Sunny
+                    new_grid[i, j] = 0
                 elif wind == 'Low' and random_chance < 0.4:
-                    new_grid[i, j] = 0  # Change to Sunny
+                    new_grid[i, j] = 0
 
-            # Rules for Sunny (SU) to Stormy (ST)
-            elif state == 0:  # Currently sunny
+            elif state == 0:
                 if is_within_circular_spread(i, j, storm_x, storm_y, radius):
                     if wind == 'High' and random_chance < 0.5:
-                        new_grid[i, j] = 1  # Change to Stormy
+                        new_grid[i, j] = 1
                     elif wind == 'Medium' and random_chance < 0.4:
-                        new_grid[i, j] = 1  # Change to Stormy
+                        new_grid[i, j] = 1
 
-    # Move the storm leftward and unpredictably up/down
-    storm_y = (storm_y - 1) % grid_size  # Move left
-    storm_x = (storm_x + np.random.randint(-3, 4)) % grid_size  # Random vertical movement
-    
-    new_grid[storm_x, storm_y] = 1  # Ensure storm keeps moving unpredictably
+    storm_y = (storm_y - 1) % grid_size
+    storm_x = (storm_x + np.random.randint(-3, 4)) % grid_size
+    new_grid[storm_x, storm_y] = 1  
     
     return new_grid, storm_x, storm_y
 
-# Create color map for visualization (Blue for sunny, Gray for stormy)
 cmap = colors.ListedColormap(['blue', 'gray'])
 norm = colors.BoundaryNorm([0, 0.5, 1], cmap.N)
 
-# Simulation
 fig, ax = plt.subplots(figsize=(6, 6))
-
-# Initial radius of the storm
 storm_radius = 1
 
 for step in range(steps):
     weather_grid, storm_x, storm_y = update_weather(weather_grid, wind_grid, temp_grid, humidity_grid, storm_x, storm_y, storm_radius)
-    
-    # Increase storm radius as it moves to simulate spread
     storm_radius += 0.2
-    
-    # Plot weather states
     ax.clear()
     ax.imshow(weather_grid, cmap=cmap, norm=norm)
     ax.set_title(f"Storm Prediction (Step {step})")
