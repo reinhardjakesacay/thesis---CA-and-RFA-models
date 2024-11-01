@@ -18,14 +18,14 @@ min_humidity = df['Humidity'].min()
 
 # CA Simulation Parameters
 grid_size = 200
-steps = 100
+steps = 101
 wind_speeds = ['Low', 'Medium', 'High']  
 temperatures = ['Low', 'High']  
 humidity_levels = ['Low', 'High']  
 
 # Create initial grid and weather conditions
 weather_grid = np.zeros((grid_size, grid_size))
-storm_x = grid_size // 2
+storm_x = np.random.randint(0, grid_size)
 storm_y = int(grid_size * 0.75)
 weather_grid[storm_x, storm_y] = 1  
 
@@ -85,6 +85,12 @@ for step in range(steps):
     ax.clear()
     ax.imshow(weather_grid, cmap=cmap, norm=norm)
     ax.set_title(f"Storm Prediction (Step {step})")
+    
+    # Remove x and y axis labels
+    ax.axis('off')
+
     plt.pause(0.1)
 
+# Save the final picture
+plt.savefig('storm_prediction_final.png', bbox_inches='tight', pad_inches=0)
 plt.show()
