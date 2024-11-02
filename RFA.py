@@ -4,115 +4,94 @@ import matplotlib.pyplot as plt
 from matplotlib import colors
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
 
-# Read the CSV file and get min, max, and random values
+# Read the CSV file and prepare data
 df = pd.read_csv('weatherHistory.csv', encoding='cp1252')
 
-# CA Simulation Parameters
-grid_size = 100  # Reduced size
-steps = 50  # Reduced number of steps
-wind_speeds = ['Low', 'Medium', 'High']
-temperatures = ['Low', 'High']
-humidity_levels = ['Low', 'High']
+# Feature extraction for training Random Forest model
+df['Wind Level'] = np.where(df['Wind Speed (km/h)'] <= df['Wind Speed (km/h)'].median(), 'Low', 'High')
+df['Temp Level'] = np.where(df['Temperature'] <= df['Temperature'].median(), 'Low', 'High')
+df['Humidity Level'] = np.where(df['Humidity'] >= df['Humidity'].median(), 'High', 'Low')
 
-# Create initial grid
-weather_grid = np.zeros((grid_size, grid_size))
-storm_x = np.random.randint(0, grid_size)
-storm_y = int(grid_size * 0.75)
-weather_grid[storm_x, storm_y] = 1
+# Map features to numeric values
+wind_map = {'Low': 0, 'High': 1}
+temp_map = {'Low': 0, 'High': 1}
+humidity_map = {'Low': 0, 'High': 1}
+df['Wind Level'] = df['Wind Level'].map(wind_map)
+df['Temp Level'] = df['Temp Level'].map(temp_map)
+df['Humidity Level'] = df['Humidity Level'].map(humidity_map)
 
-# Set up probability based on CSV values
-wind_prob = [0.08, 0.7, 0.22]
-temp_prob = [0.2, 0.8]
-humidity_prob = [0.9, 0.1]
+# Create training dataset (assuming random labels for demonstration purposes)
+X = df[['Wind Level', 'Temp Level', 'Humidity Level']]
+y = np.random.randint(0, 2, size=len(X))  # Random binary outcome (0 = no storm, 1 = storm)
 
-# Initialize the weather condition grids
-wind_grid = np.random.choice(wind_speeds, size=(grid_size, grid_size), p=wind_prob)
-temp_grid = np.random.choice(temperatures, size=(grid_size, grid_size), p=temp_prob)
-humidity_grid = np.random.choice(humidity_levels, size=(grid_size, grid_size), p=humidity_prob)
-
-# Generate initial dataset for Random Forest
-features = []
-labels = []
-
-for _ in range(300):  # Generate a dataset with 1000 samples
-    random_temperature = np.random.choice(temperatures)
-    random_wind_speed = np.random.choice(wind_speeds)
-    random_humidity = np.random.choice(humidity_levels)
-
-    # Define the state of the storm based on the random weather conditions
-    storm_present = 1 if (random_wind_speed == 'High' and random_temperature == 'Low' and random_humidity == 'High') else 0
-    features.append([random_temperature, random_wind_speed, random_humidity])
-    labels.append(storm_present)
-
-# Create DataFrame and encode
-df_weather = pd.DataFrame(features, columns=['Temperature', 'Wind Speed', 'Humidity'])
-df_weather['Storm'] = labels
-df_weather = pd.get_dummies(df_weather, columns=['Temperature', 'Wind Speed', 'Humidity'], drop_first=True)
-
-# Train Random Forest model
-X = df_weather.drop('Storm', axis=1)
-y = df_weather['Storm']
+# Split data into training and test sets
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-rf_model = RandomForestClassifier(n_estimators=100, random_state=42)
-rf_model.fit(X_train, y_train)
-y_pred = rf_model.predict(X_test)
-print(f"Model Accuracy: {accuracy_score(y_test, y_pred):.2f}")
+# Train the Random Forest model
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train, y_train)
+
+# CA Simulation Parameters
+grid_size = 200
+steps = 101
+weather_grid = np.zeros((grid_size, grid_size))
+storm_x, storm_y = np.random.randint(0, grid_size), int(grid_size * 0.75)
+weather_grid[storm_x, storm_y] = 1
+
+# Initialize grids
+wind_grid = np.random.choice(['Low', 'High'], size=(grid_size, grid_size))
+temp_grid = np.random.choice(['Low', 'High'], size=(grid_size, grid_size))
+humidity_grid = np.random.choice(['Low', 'High'], size=(grid_size, grid_size))
 
 def is_within_circular_spread(x, y, storm_x, storm_y, radius):
-    return (x - storm_x)**2 + (y - storm_y)**2 <= radius**2
+    return (x - storm_x) ** 2 + (y - storm_y) ** 2 <= radius ** 2
 
-def update_weather(grid, wind_grid, temp_grid, humidity_grid, storm_x, storm_y, radius):
+def update_weather_with_model(grid, wind_grid, temp_grid, humidity_grid, storm_x, storm_y, radius, model):
     new_grid = grid.copy()
-    storm_probability = np.zeros((grid_size, grid_size))
-
-    # Prepare the features for all grid cells
     for i in range(grid_size):
         for j in range(grid_size):
-            wind = wind_grid[i, j]
-            temp = temp_grid[i, j]
-            humidity = humidity_grid[i, j]
-            
-            feature_vector = pd.get_dummies(pd.DataFrame([[temp, wind, humidity]], columns=['Temperature', 'Wind Speed', 'Humidity']), drop_first=True)
-            feature_vector = feature_vector.reindex(columns=X.columns, fill_value=0)
-            
-            # Get the storm probability for the current cell
-            storm_probability[i, j] = rf_model.predict_proba(feature_vector)[:, 1][0]
+            if is_within_circular_spread(i, j, storm_x, storm_y, radius):
+                wind = wind_map[wind_grid[i, j]]
+                temp = temp_map[temp_grid[i, j]]
+                humidity = humidity_map[humidity_grid[i, j]]
+                
+                # Predict storm probability
+                features_df = pd.DataFrame([[wind, temp, humidity]], columns=['Wind Level', 'Temp Level', 'Humidity Level'])
+                prob_storm = model.predict_proba(features_df)[0, 1]
 
-    random_chances = np.random.uniform(0, 1, size=(grid_size, grid_size))
-    
-    # Update the new grid based on the storm probability and current state
-    new_grid[(grid == 1) & (random_chances < storm_probability)] = 1  # Keep storm present
-    within_radius = is_within_circular_spread(np.arange(grid_size)[:, None], np.arange(grid_size), storm_x, storm_y, radius)
-    
-    new_grid[(grid == 0) & (within_radius & (random_chances < storm_probability))] = 1  # Storm may form here
+                
+                # Update grid based on prediction
+                if prob_storm > 0.5:  # Threshold can be adjusted
+                    new_grid[i, j] = 1
+                else:
+                    new_grid[i, j] = 0
 
-    # Update storm position
+    # Update storm center position randomly
     storm_y = (storm_y - 1) % grid_size
     storm_x = (storm_x + np.random.randint(-3, 4)) % grid_size
     new_grid[storm_x, storm_y] = 1  
-
+    
     return new_grid, storm_x, storm_y
 
 # Set up for visualization
 cmap = colors.ListedColormap(['blue', 'gray'])
 norm = colors.BoundaryNorm([0, 0.5, 1], cmap.N)
-
 fig, ax = plt.subplots(figsize=(6, 6))
 storm_radius = 1
 
+# Run the simulation
 for step in range(steps):
-    weather_grid, storm_x, storm_y = update_weather(weather_grid, wind_grid, temp_grid, humidity_grid, storm_x, storm_y, storm_radius)
+    weather_grid, storm_x, storm_y = update_weather_with_model(
+        weather_grid, wind_grid, temp_grid, humidity_grid, storm_x, storm_y, storm_radius, model
+    )
     storm_radius += 0.2
-    if step % 5 == 0:  # Update the plot every 5 steps
-        ax.clear()
-        ax.imshow(weather_grid, cmap=cmap, norm=norm)
-        ax.set_title(f"Storm Prediction (Step {step})")
-        ax.axis('off')
-        plt.pause(0.1)
+    ax.clear()
+    ax.imshow(weather_grid, cmap=cmap, norm=norm)
+    ax.set_title(f"Typhoon Path Prediction (Step {step})")
+    ax.axis('off')
+    plt.pause(0.1)
 
 # Save the final picture
-plt.savefig('storm_prediction_final.png', bbox_inches='tight', pad_inches=0)
+plt.savefig('typhoon_path_prediction_final.png', bbox_inches='tight', pad_inches=0)
 plt.show()
