@@ -2,11 +2,23 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Ensure that the results are cropped before using for overlay
+# Function to calculate accuracy percentage
+def calculate_accuracy(prediction_img, actual_img):
+    # Ensure the images are the same size
+    assert prediction_img.shape == actual_img.shape, "Images must be the same size for accuracy calculation."
+    
+    # Calculate the number of matching pixels
+    correct_predictions = np.sum((prediction_img == actual_img).all(axis=2))
+    total_pixels = prediction_img.shape[0] * prediction_img.shape[1]
+    
+    # Calculate accuracy percentage
+    accuracy = (correct_predictions / total_pixels) * 100
+    return accuracy
+
 # Read the images
-ca_img = cv2.imread('cropped_CA_for_overlay.png')
-rfa_img = cv2.imread('cropped_CA-RFA_for_overlay.png')
-actual_img = cv2.imread('cropped_actual_stormtrack_for_overlay.png')
+ca_img = cv2.imread('Reg_CA_Model.png')
+rfa_img = cv2.imread('Hybrid_Model_RFA.png')
+actual_img = cv2.imread('processed_storm_track.png')
 
 # Convert images to RGB for Matplotlib
 ca_img = cv2.cvtColor(ca_img, cv2.COLOR_BGR2RGB)
@@ -24,17 +36,22 @@ overlay_img = np.zeros_like(actual_img)
 # Overlay the predictions with different colors
 overlay_img[np.where((ca_img != 0).all(axis=2))] = [255, 50, 50]  # Bright red for CA
 overlay_img[np.where((rfa_img != 0).all(axis=2))] = [255, 255, 50]  # Bright yellow for CA-RFA
-overlay_img[np.where((actual_img != 0).all(axis=2))] = [50, 255, 50]  # Bright green for actual
 
 # Combine the overlay with the actual storm track
 combined_img = cv2.addWeighted(actual_img, 0.4, overlay_img, 0.6, 0)
+
+# Calculate accuracy for CA and CA-RFA
+ca_accuracy = calculate_accuracy(ca_img, actual_img)
+rfa_accuracy = calculate_accuracy(rfa_img, actual_img)
+
+# Determine which model is more accurate
+more_accurate = "CA" if ca_accuracy > rfa_accuracy else "CA-RFA" if rfa_accuracy > ca_accuracy else "Both are equally accurate"
 
 # Display the combined image
 plt.figure(figsize=(10, 10))
 plt.imshow(combined_img)
 plt.axis('off')
-plt.title('Overlay of CA Prediction and CA-RFA Prediction in Actual Storm Track')
-
+plt.title('Enhanced Comparison of CA, CA-RFA, and Actual Storm Track')
 
 # Create a custom legend
 legend_labels = ['CA Prediction', 'CA-RFA Prediction', 'Actual Storm Track']
@@ -44,5 +61,10 @@ handles = [plt.Line2D([0], [0], marker='o', color='w', label=label,
            for label, color in zip(legend_labels, colors)]
 
 plt.legend(handles=handles, loc='upper right', fontsize=12)
+
+# Add accuracy results to the plot
+plt.text(10, 20, f"CA Accuracy: {ca_accuracy:.2f}%", color='white', fontsize=12)
+plt.text(10, 40, f"CA-RFA Accuracy: {rfa_accuracy:.2f}%", color='white', fontsize=12)
+plt.text(10, 60, f"More Accurate Model: {more_accurate}", color='white', fontsize=12)
 
 plt.show()
