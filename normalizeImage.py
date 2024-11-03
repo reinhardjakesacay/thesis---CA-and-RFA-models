@@ -36,7 +36,11 @@ blue_background = np.full((200, 200, 3), (0, 0, 255), dtype=np.uint8)  # RGB for
 
 # Overlay the gray storm track onto the blue background
 # Set the storm track areas (where mask is 255) to gray
-result_img = np.where(resized_mask[..., None] == 255, (128, 128, 128), blue_background)
+result_img = np.where(resized_mask[..., None] == 255, (128, 128, 128), blue_background).astype(np.uint8)
+
+# Save the final result to a file
+output_path = 'processed_storm_track.png'  # Path where you want to save the image
+cv2.imwrite(output_path, cv2.cvtColor(result_img, cv2.COLOR_RGB2BGR))  # Convert back to BGR for saving
 
 # Plot the final result
 plt.figure(figsize=(6, 6))
