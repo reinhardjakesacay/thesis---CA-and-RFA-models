@@ -84,7 +84,6 @@ for step in range(steps):
     storm_radius += 0.2
     ax.clear()
     ax.imshow(weather_grid, cmap=cmap, norm=norm)
-    ax.set_title(f"Storm Prediction (Step {step})")
     
     # Remove x and y axis labels
     ax.axis('off')
@@ -92,5 +91,5 @@ for step in range(steps):
     plt.pause(0.1)
 
 # Save the final picture
-plt.savefig('storm_prediction_final.png', bbox_inches='tight', pad_inches=0)
+plt.savefig('Reg_CA_Model.png', bbox_inches='tight', pad_inches=0)
 plt.show()

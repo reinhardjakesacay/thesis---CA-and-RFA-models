@@ -88,10 +88,9 @@ for step in range(steps):
     storm_radius += 0.2
     ax.clear()
     ax.imshow(weather_grid, cmap=cmap, norm=norm)
-    ax.set_title(f"Typhoon Path Prediction (Step {step})")
     ax.axis('off')
     plt.pause(0.1)
 
 # Save the final picture
-plt.savefig('typhoon_path_prediction_final.png', bbox_inches='tight', pad_inches=0)
+plt.savefig('Hybrid_Model_RFA.png', bbox_inches='tight', pad_inches=0)
 plt.show()
