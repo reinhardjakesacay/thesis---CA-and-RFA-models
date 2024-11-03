@@ -1,6 +1,7 @@
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 
 # Function to calculate accuracy percentage
 def calculate_accuracy(prediction_img, actual_img):
@@ -18,7 +19,7 @@ def calculate_accuracy(prediction_img, actual_img):
 # Read the images
 ca_img = cv2.imread('Reg_CA_Model.png')
 rfa_img = cv2.imread('Hybrid_Model_RFA.png')
-actual_img = cv2.imread('processed_storm_track.png')
+actual_img = cv2.imread('processed_storm_track_1.png')
 
 # Convert images to RGB for Matplotlib
 ca_img = cv2.cvtColor(ca_img, cv2.COLOR_BGR2RGB)
@@ -66,5 +67,18 @@ plt.legend(handles=handles, loc='upper right', fontsize=12)
 plt.text(10, 20, f"CA Accuracy: {ca_accuracy:.2f}%", color='white', fontsize=12)
 plt.text(10, 40, f"CA-RFA Accuracy: {rfa_accuracy:.2f}%", color='white', fontsize=12)
 plt.text(10, 60, f"More Accurate Model: {more_accurate}", color='white', fontsize=12)
+
+# Generate a unique filename for saving the plot
+base_filename = 'comparison_result.png'
+output_path = base_filename
+counter = 1
+
+# Check if the file already exists and generate a new filename if necessary
+while os.path.exists(output_path):
+    output_path = f'comparison_plot_{counter}.png'
+    counter += 1
+
+# Save the plot to a file
+plt.savefig(output_path, bbox_inches='tight', dpi=300)  # Save with tight bounding box and high resolution
 
 plt.show()
