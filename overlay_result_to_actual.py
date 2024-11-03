@@ -33,5 +33,16 @@ combined_img = cv2.addWeighted(actual_img, 0.4, overlay_img, 0.6, 0)
 plt.figure(figsize=(10, 10))
 plt.imshow(combined_img)
 plt.axis('off')
-plt.title('Enhanced Comparison of CA, CA-RFA, and Actual Storm Track')
+plt.title('Overlay of CA Prediction and CA-RFA Prediction in Actual Storm Track')
+
+
+# Create a custom legend
+legend_labels = ['CA Prediction', 'CA-RFA Prediction', 'Actual Storm Track']
+colors = [[255, 50, 50], [255, 255, 50], [50, 255, 50]]
+handles = [plt.Line2D([0], [0], marker='o', color='w', label=label,
+                        markerfacecolor=np.array(color)/255.0, markersize=10) 
+           for label, color in zip(legend_labels, colors)]
+
+plt.legend(handles=handles, loc='upper right', fontsize=12)
+
 plt.show()
